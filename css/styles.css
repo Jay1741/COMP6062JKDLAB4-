@@ -1,0 +1,18 @@
+
+header {
+  background-color: #f0f0f0;
+  color: #1e00ff;
+  padding: 55px;
+  margin-left: 55px;
+  border: 2px solid #000;
+}
+
+
+.highlight-text {
+  color: #ff0000;
+}
+
+
+.week2-input-group{
+  padding-bottom: 15px;
+}
