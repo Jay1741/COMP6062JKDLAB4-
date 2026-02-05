@@ -1,0 +1,225 @@
+/*Use of AI / Cognitive Assistance Software is not allowed in any evaluation, assessment or exercise.*/
+/*=============================================================================
+	File Name:	ELNC6011JKDWEEK4.c  
+	Author:		Jay Darji
+	Date:		08/01/2026
+	Modified:	None 
+	© Fanshawe College, 2026
+
+	Description: Describe the purpose of the whole program.  What the 
+			program does and why. What platform (hardware part number) and / or 
+			supplemental documents required for the program?s use. 
+			Describe any supporting information (schematic, programming 
+			environment, ect..). 
+=============================================================================*/
+
+/* Preprocessor ===============================================================
+   Hardware Configuration Bits ==============================================*/
+#pragma config FOSC		= INTIO67
+#pragma config PLLCFG	= OFF
+#pragma config PRICLKEN = ON
+#pragma config FCMEN	= OFF
+#pragma config IESO		= OFF
+#pragma config PWRTEN	= OFF 
+#pragma config BOREN	= ON
+#pragma config BORV		= 285 
+#pragma config WDTEN	= OFF
+#pragma config PBADEN	= OFF
+#pragma config LVP		= OFF
+#pragma config MCLRE	= EXTMCLR
+
+// Libraries ==================================================================
+#include <xc.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+// Constants  =================================================================
+#define TRUE	1	
+#define FALSE	0	
+#define SAMPLES 10
+#define TEMP 0
+#define HUMID 1
+#define PRES 2
+#define SENSORS 3
+#define ADCCHAN ADCON0bits.CHS 
+#define ADCGO ADCON0bits.GO
+
+// Type Defs ==========================================================
+typedef int sensor_t;
+typedef char flag_t;
+// Global Variables  ==========================================================
+typedef struct 
+{
+	sensor_t current;
+	int highLimit;
+	int lowLimit;
+	sensor_t samples[SAMPLES];
+	int insert;
+	flag_t avgRdy;
+	
+}sensorChannel_t;
+
+sensorChannel_t sensor [ SENSORS ];
+
+// Functions  =================================================================
+
+/*>>> setOsc4mhz ===========================================================
+Author:		Jay Darji
+Date:		15/01/2001
+Modified:	None
+Desc:		This function sets the frequency at 4Mhz for internal Oscillator of Microcontroller
+			then waits it still stabalize.
+Input: 		None 
+Returns:	None 
+ ============================================================================*/
+void setOsc4mhz(void)
+{
+	OSCCON = 0x53;
+	while(!OSCCONbits.HFIOFS);
+	
+} // eo setOsc4mhz::
+
+/*>>> setIOport: ===========================================================
+Author:		Jay Darji
+Date:		15/01/2026
+Modified:	None
+Desc:		Configure the port pins for Sensors and Serial peripheral Conection for Serial Link.
+Input: 		None 
+Returns:	None 
+ ============================================================================*/
+void setIOport(void)
+{
+	ANSELA = 0x07;
+	LATA   = 0x0F;
+	TRISA  = 0xFF;
+	
+	ANSELB = 0x00;
+	LATB   = 0x00;
+	TRISB  = 0xFF;
+	
+	ANSELC = 0x00;
+	LATC   = 0x00;
+	TRISC  = 0xBF;
+	  
+	ANSELD = 0x00;
+	LATD   = 0x00;
+	TRISD  = 0xFF;
+	 
+	ANSELE = 0x00;
+	LATE   = 0x00;
+	TRISE  = 0xFF;
+} // setIOport::
+
+/*>>> configAdc: ===========================================================
+Author:		Jay Darji
+Date:		29/01/2026
+Modified:	None
+Desc:		This function configure the ADC module for  12 Tad, Fosc/8, Channel 0, 
+            standard voltage references and  ADC module on.   
+Input: 		None 
+Returns:	None 
+ ============================================================================*/
+void configAdc(void)
+{
+	ADCON0 = 0x01;
+    ADCON1 = 0x00;
+    ADCON2 = 0x29;
+ 
+} // eo configAdc::
+
+/*>>> getAdcSample: ===========================================================
+Author:		Jay Darji
+Date:		29/01/2026
+Modified:	None
+Desc:		This function get the ADC sample value and return it to the main. 
+Input: 		char chan - input for channel select
+Returns:	ADRES - the sample value from register.
+ ============================================================================*/
+int getAdcSample(char chan)
+{
+	ADCCHAN = chan;
+    ADCGO = TRUE;
+    while(ADCGO);
+    return ADRES;
+    
+} // eo getAdcSample::
+
+/*>>>  configSp1: ===========================================================
+Author:		Jay Darji
+Date:		29/01/2026
+Modified:	None
+Desc:		This function configures the serial connection on port 1 for establishing coomunication 
+            with MAX 232.It sets baud rate at  9600, SP1 on, TX & RX enabled, 8 bit, 1 stop bit, non-inverted.
+Input: 		None 
+Returns:	None 
+ ============================================================================*/
+void configSp1(void)
+{
+	TXSTA1 = 0x26;
+    RCSTA1 = 0x80;
+    BAUDCON1 = 0X40;
+    SPBRGH1 = 0X00;
+    SPBRG1 = 0X19;
+       
+} // eo configSp1::
+
+// Sensor Functions  =================================================================
+
+/*>>> systemInitialization: ===========================================================
+Author:		Jay Darji
+Date:		29/01/2026
+Modified:	None
+Desc:		This function initialize all the functions for main.
+Input: 		None 
+Returns:	None 
+ ============================================================================*/
+void systemInitialization(void)
+{
+    setOsc4mhz();
+    setIOport();
+    configAdc();
+    configSp1();   
+} // eo systemInitialization::
+
+// Sensor Functions  =================================================================
+
+/*>>> initSensorData: ===========================================================
+Author:		Jay Darji
+Date:		08/01/2026
+Modified:	None
+Desc:		Function is intializes a data structure sensoreChennel_t by putting it to zero State.
+Input: 		sensorChannel_t *ptr, A Pointer to a sensorChannel_t object.
+Returns:	None
+ ============================================================================*/
+void initSensorData(sensorChannel_t *ptr)
+{
+	int index = 0;
+	ptr -> current = FALSE;
+	ptr -> highLimit = FALSE;
+	ptr -> lowLimit = FALSE;
+	for (index = 0; index < SAMPLES;index++)
+	{
+		ptr -> samples[index] = FALSE;
+	}
+	ptr -> insert = FALSE;
+	ptr -> avgRdy = FALSE;
+} // eo initSensorData::
+
+
+
+/*=== MAIN: FUNCTION ==========================================================
+ ============================================================================*/
+void main( void )
+{
+	systemInitialization();
+    char chID = 0;
+    for (chID = 0; chID < SENSORS; chID++)
+    {
+        initSensorData(&sensor[chID]);
+    }  
+    while(TRUE)
+    {
+    
+    
+    }
+} // eo main::
