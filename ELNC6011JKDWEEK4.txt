@@ -1,16 +1,16 @@
 /*Use of AI / Cognitive Assistance Software is not allowed in any evaluation, assessment or exercise.*/
 /*=============================================================================
-	File Name:	ELNC6011JKDWEEK4.c  
+	File Name:	ELNC6011JKDLAB1.c  
 	Author:		Jay Darji
 	Date:		08/01/2026
 	Modified:	None 
 	© Fanshawe College, 2026
 
-	Description: Describe the purpose of the whole program.  What the 
-			program does and why. What platform (hardware part number) and / or 
-			supplemental documents required for the program?s use. 
-			Describe any supporting information (schematic, programming 
-			environment, ect..). 
+	Description: This program implements a multi-channel sensor sampling system 
+			using the PIC18F45K22. It samples three analog sensors (Pressure, 
+			Humidity, Temperature) via ADC, stores them in a rolling buffer, 
+			calculates a 10-sample average, and displays the results to a 
+			serial terminal via USART1.
 =============================================================================*/
 
 /* Preprocessor ===============================================================
@@ -25,7 +25,7 @@
 #pragma config BORV		= 285 
 #pragma config WDTEN	= OFF
 #pragma config PBADEN	= OFF
-#pragma config LVP		= OFF
+#pragma config LVP		= ON
 #pragma config MCLRE	= EXTMCLR
 
 // Libraries ==================================================================
@@ -43,6 +43,7 @@
 #define SENSORS 3
 #define ADCCHAN ADCON0bits.CHS 
 #define ADCGO ADCON0bits.GO
+#define TX1BUSY PIR1bits.TX1IF
 
 // Type Defs ==========================================================
 typedef int sensor_t;
@@ -83,7 +84,7 @@ void setOsc4mhz(void)
 Author:		Jay Darji
 Date:		15/01/2026
 Modified:	None
-Desc:		Configure the port pins for Sensors and Serial peripheral Conection for Serial Link.
+Desc:		Configures PORTA for analog inputs and PORTC for USART.
 Input: 		None 
 Returns:	None 
  ============================================================================*/
@@ -114,8 +115,7 @@ void setIOport(void)
 Author:		Jay Darji
 Date:		29/01/2026
 Modified:	None
-Desc:		This function configure the ADC module for  12 Tad, Fosc/8, Channel 0, 
-            standard voltage references and  ADC module on.   
+Desc:		Configures ADC for 12 Tad, Fosc/8, and module ON.   
 Input: 		None 
 Returns:	None 
  ============================================================================*/
@@ -131,7 +131,7 @@ void configAdc(void)
 Author:		Jay Darji
 Date:		29/01/2026
 Modified:	None
-Desc:		This function get the ADC sample value and return it to the main. 
+Desc:		This function Selects a channel, starts conversion, and returns the result. 
 Input: 		char chan - input for channel select
 Returns:	ADRES - the sample value from register.
  ============================================================================*/
@@ -163,7 +163,16 @@ void configSp1(void)
        
 } // eo configSp1::
 
+void putch(char data)
+{
+    while(!TX1BUSY);
+    TXREG1= data;
+}// Required for printf to redirect output to USART1.
+
 // Sensor Functions  =================================================================
+
+
+
 
 /*>>> systemInitialization: ===========================================================
 Author:		Jay Darji
@@ -178,8 +187,28 @@ void systemInitialization(void)
     setOsc4mhz();
     setIOport();
     configAdc();
-    configSp1();   
+    configSp1(); 
+    
 } // eo systemInitialization::
+
+/*>>> printValue: ========================================================
+Author:		Jay Darji
+Date:		29/01/2026
+Modified:	None
+Desc:		This function transmits the formatted sensor data table via 
+			USART1, including the student ID, current averages, and limits.
+Input: 		None 
+Returns:	None 
+============================================================================*/
+void printValue(void)
+{
+	printf("\033[2J\033[H"); // Clear Screen
+	printf("System(933)\n\r");
+	printf("Sen0:\t%i  Sen1:\t%i  Sen2:\t%i \n\r", sensor[TEMP].current, sensor[HUMID].current, sensor[PRES].current); // Display Averages	
+	printf("HL:  \t%i  HL:\t  %i  HL:\t  %i \n\r", sensor[TEMP].highLimit, sensor[HUMID].highLimit, sensor[PRES].highLimit); // Display High Limits	
+	printf("LL:  \t%i  LL:\t  %i  LL:\t  %i \n\r", sensor[TEMP].lowLimit, sensor[HUMID].lowLimit, sensor[PRES].lowLimit); // Display Low Limits
+    
+} // eo printValue::
 
 // Sensor Functions  =================================================================
 
@@ -209,17 +238,47 @@ void initSensorData(sensorChannel_t *ptr)
 
 /*=== MAIN: FUNCTION ==========================================================
  ============================================================================*/
-void main( void )
+void main(void)
 {
+	char chID = 0;
+	long sum = 0;
+	int index = 0;
+	
 	systemInitialization();
-    char chID = 0;
-    for (chID = 0; chID < SENSORS; chID++)
-    {
-        initSensorData(&sensor[chID]);
-    }  
-    while(TRUE)
-    {
-    
-    
-    }
+	
+	for (chID = 0; chID < SENSORS; chID++)
+	{
+		initSensorData(&sensor[chID]);
+	} // eo for loop
+	
+	while(TRUE)
+	{  
+		for (chID = 0; chID < SENSORS; chID++)
+		{
+			sum = 0;
+			 
+			sensor[chID].samples[sensor[chID].insert] = getAdcSample(chID);
+			sensor[chID].insert++;
+			
+			if(sensor[chID].insert >= SAMPLES)
+			{
+				sensor[chID].insert = FALSE;
+				sensor[chID].avgRdy = TRUE;
+			} // eo if
+			
+			if (sensor[chID].avgRdy == TRUE)
+			{
+				for(index = 0; index < SAMPLES; index++) 
+				{
+					sum += sensor[chID].samples[index];
+				} // eo for loop
+				
+				sensor[chID].current = (sum / SAMPLES);
+			} // eo if
+		} // eo for loop
+		
+		printValue(); 
+		
+	} // eo while loop
+   
 } // eo main::
