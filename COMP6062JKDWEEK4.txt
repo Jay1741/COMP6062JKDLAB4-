@@ -1,6 +1,6 @@
 /*Use of AI / Cognitive Assistance Software is not allowed in any evaluation, assessment or exercise.*/
 /*=============================================================================
-	File Name:	ELNC6011JKDLAB1.c  
+	File Name:	COMP6062JKDLAB1.c  
 	Author:		Jay Darji
 	Date:		08/01/2026
 	Modified:	None 
@@ -282,3 +282,4 @@ void main(void)
 	} // eo while loop
    
 } // eo main::
+
